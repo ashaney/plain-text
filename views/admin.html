@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plain Text Bin - Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .editor-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        
+        .format-select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        textarea {
+            width: 100%;
+            min-height: 400px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            resize: vertical;
+        }
+        
+        button {
+            padding: 8px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        button.danger {
+            background: #dc3545;
+        }
+        
+        button.danger:hover {
+            background: #c82333;
+        }
+        
+        button.secondary {
+            background: #6c757d;
+        }
+        
+        button.secondary:hover {
+            background: #545b62;
+        }
+        
+        .url-display {
+            display: none;
+            margin-top: 15px;
+            padding: 12px;
+            background: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 4px;
+        }
+        
+        .url-display.show {
+            display: block;
+        }
+        
+        .url-display input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            margin-top: 8px;
+        }
+        
+        .pastes-list {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .paste-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .paste-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .paste-info {
+            flex: 1;
+        }
+        
+        .paste-id {
+            font-family: monospace;
+            font-weight: 600;
+            color: #007bff;
+            cursor: pointer;
+        }
+        
+        .paste-meta {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+        
+        .paste-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .paste-actions button {
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            background: #28a745;
+            color: white;
+            border-radius: 3px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+        
+        .badge.markdown {
+            background: #6610f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Plain Text Bin - Admin Panel</h1>
+        </header>
+        
+        <div class="editor-section">
+            <div class="controls">
+                <select id="format" class="format-select">
+                    <option value="text">Plain Text</option>
+                    <option value="markdown">Markdown</option>
+                </select>
+                <button onclick="createPaste()">Create New</button>
+                <button onclick="savePaste()" id="saveBtn" style="display:none">Save Changes</button>
+                <button onclick="cancelEdit()" id="cancelBtn" class="secondary" style="display:none">Cancel</button>
+                <span id="currentId" style="margin-left: auto; font-family: monospace; color: #666;"></span>
+            </div>
+            
+            <textarea id="content" placeholder="Enter your text or markdown here..."></textarea>
+            
+            <div id="urlDisplay" class="url-display">
+                <strong>Share URL:</strong>
+                <input type="text" id="shareUrl" readonly onclick="this.select()">
+                <div style="margin-top: 8px; font-size: 14px; color: #666;">
+                    Append <code>/raw</code> for plain text only, or <code>?format=text</code> to force text view
+                </div>
+            </div>
+        </div>
+        
+        <div class="pastes-list">
+            <h2 style="margin-bottom: 15px;">Recent Pastes</h2>
+            <div id="pastesList"></div>
+        </div>
+    </div>
+    
+    <script>
+        let currentPasteId = null;
+        
+        async function loadPastes() {
+            try {
+                const response = await fetch('/api/pastes');
+                const pastes = await response.json();
+                
+                const listHtml = pastes.map(paste => `
+                    <div class="paste-item">
+                        <div class="paste-info">
+                            <span class="paste-id" onclick="viewPaste('${paste.id}')">${paste.id}</span>
+                            <span class="badge ${paste.format}">${paste.format}</span>
+                            <div class="paste-meta">
+                                Created: ${new Date(paste.created_at).toLocaleString()}
+                                ${paste.updated_at !== paste.created_at ? `| Updated: ${new Date(paste.updated_at).toLocaleString()}` : ''}
+                            </div>
+                        </div>
+                        <div class="paste-actions">
+                            <button onclick="editPaste('${paste.id}')">Edit</button>
+                            <button onclick="copyUrl('${paste.id}')">Copy URL</button>
+                            <button onclick="deletePaste('${paste.id}')" class="danger">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('pastesList').innerHTML = listHtml || '<p style="padding: 20px; text-align: center; color: #666;">No pastes yet</p>';
+            } catch (error) {
+                console.error('Failed to load pastes:', error);
+            }
+        }
+        
+        async function createPaste() {
+            const content = document.getElementById('content').value;
+            const format = document.getElementById('format').value;
+            
+            if (!content.trim()) {
+                alert('Please enter some content');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/pastes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content, format })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    currentPasteId = result.id;
+                    showUrl(result.url);
+                    showEditMode();
+                    loadPastes();
+                } else {
+                    alert('Failed to create paste: ' + result.error);
+                }
+            } catch (error) {
+                alert('Failed to create paste');
+                console.error(error);
+            }
+        }
+        
+        async function savePaste() {
+            if (!currentPasteId) return;
+            
+            const content = document.getElementById('content').value;
+            const format = document.getElementById('format').value;
+            
+            if (!content.trim()) {
+                alert('Please enter some content');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/pastes/${currentPasteId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content, format })
+                });
+                
+                if (response.ok) {
+                    alert('Paste updated successfully');
+                    loadPastes();
+                } else {
+                    alert('Failed to update paste');
+                }
+            } catch (error) {
+                alert('Failed to update paste');
+                console.error(error);
+            }
+        }
+        
+        async function editPaste(id) {
+            try {
+                const response = await fetch(`/api/pastes/${id}`);
+                const paste = await response.json();
+                
+                if (response.ok) {
+                    currentPasteId = id;
+                    document.getElementById('content').value = paste.content;
+                    document.getElementById('format').value = paste.format;
+                    document.getElementById('currentId').textContent = `Editing: ${id}`;
+                    showEditMode();
+                    showUrl(window.location.origin + '/' + id);
+                }
+            } catch (error) {
+                alert('Failed to load paste');
+                console.error(error);
+            }
+        }
+        
+        async function deletePaste(id) {
+            if (!confirm('Are you sure you want to delete this paste?')) return;
+            
+            try {
+                const response = await fetch(`/api/pastes/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    if (currentPasteId === id) {
+                        cancelEdit();
+                    }
+                    loadPastes();
+                } else {
+                    alert('Failed to delete paste');
+                }
+            } catch (error) {
+                alert('Failed to delete paste');
+                console.error(error);
+            }
+        }
+        
+        function viewPaste(id) {
+            window.open('/' + id, '_blank');
+        }
+        
+        function copyUrl(id) {
+            const url = window.location.origin + '/' + id;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('URL copied to clipboard');
+            });
+        }
+        
+        function showUrl(url) {
+            document.getElementById('shareUrl').value = url;
+            document.getElementById('urlDisplay').classList.add('show');
+        }
+        
+        function showEditMode() {
+            document.getElementById('saveBtn').style.display = 'inline-block';
+            document.getElementById('cancelBtn').style.display = 'inline-block';
+        }
+        
+        function cancelEdit() {
+            currentPasteId = null;
+            document.getElementById('content').value = '';
+            document.getElementById('format').value = 'text';
+            document.getElementById('currentId').textContent = '';
+            document.getElementById('saveBtn').style.display = 'none';
+            document.getElementById('cancelBtn').style.display = 'none';
+            document.getElementById('urlDisplay').classList.remove('show');
+        }
+        
+        // Load pastes on page load
+        loadPastes();
+    </script>
+</body>
+</html>
