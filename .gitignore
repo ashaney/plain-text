@@ -5,3 +5,7 @@ data/
 pastes.db
 *.db
 .DS_Store
+.env.mac
+.env.windows
+tunnel-config.yml
+start-mac.sh
