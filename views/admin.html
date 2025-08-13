@@ -222,6 +222,18 @@
     
     <script>
         let currentPasteId = null;
+        let publicUrl = '';
+        
+        // Load config on page load
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                publicUrl = config.publicUrl;
+            } catch (error) {
+                console.error('Failed to load config:', error);
+            }
+        }
         
         async function loadPastes() {
             try {
@@ -325,7 +337,8 @@
                     document.getElementById('format').value = paste.format;
                     document.getElementById('currentId').textContent = `Editing: ${id}`;
                     showEditMode();
-                    showUrl(window.location.origin + '/' + id);
+                    const url = publicUrl ? `${publicUrl}/${id}` : window.location.origin + '/' + id;
+                    showUrl(url);
                 }
             } catch (error) {
                 alert('Failed to load paste');
@@ -356,11 +369,12 @@
         }
         
         function viewPaste(id) {
-            window.open('/' + id, '_blank');
+            const url = publicUrl ? `${publicUrl}/${id}` : `/${id}`;
+            window.open(url, '_blank');
         }
         
         function copyUrl(id) {
-            const url = window.location.origin + '/' + id;
+            const url = publicUrl ? `${publicUrl}/${id}` : window.location.origin + '/' + id;
             navigator.clipboard.writeText(url).then(() => {
                 alert('URL copied to clipboard');
             });
@@ -386,8 +400,8 @@
             document.getElementById('urlDisplay').classList.remove('show');
         }
         
-        // Load pastes on page load
-        loadPastes();
+        // Load config and pastes on page load
+        loadConfig().then(() => loadPastes());
     </script>
 </body>
 </html>

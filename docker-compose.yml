@@ -10,5 +10,6 @@ services:
     environment:
       - AUTH_USER=${AUTH_USER:-admin}
       - AUTH_PASS=${AUTH_PASS:-changeme}
+      - PUBLIC_URL=${PUBLIC_URL}
       - DB_PATH=/app/data/pastes.db
     restart: unless-stopped

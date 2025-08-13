@@ -13,6 +13,9 @@ const PORT = process.env.PORT || 8080;
 const AUTH_USER = process.env.AUTH_USER || 'admin';
 const AUTH_PASS = process.env.AUTH_PASS || 'changeme';
 
+// Public URL for sharing (e.g., Tailscale funnel URL)
+const PUBLIC_URL = process.env.PUBLIC_URL || '';
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -55,6 +58,13 @@ app.get('/admin', auth, (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
 
+// API: Get config (admin only)
+app.get('/api/config', auth, (req, res) => {
+  res.json({ 
+    publicUrl: PUBLIC_URL 
+  });
+});
+
 // API: Get all pastes (admin only)
 app.get('/api/pastes', auth, (req, res) => {
   try {
@@ -87,7 +97,8 @@ app.post('/api/pastes', auth, (req, res) => {
   
   try {
     stmts.insertPaste.run(id, content, format);
-    res.json({ id, url: `${req.protocol}://${req.get('host')}/${id}` });
+    const url = PUBLIC_URL ? `${PUBLIC_URL}/${id}` : `${req.protocol}://${req.get('host')}/${id}`;
+    res.json({ id, url });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
